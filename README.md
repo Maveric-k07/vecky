@@ -1,27 +1,27 @@
-# Vecky
+# Vecky 🚀
 
 Vecky is a lightweight vector database implementation that uses PostgreSQL with the pgvector extension for persisting embeddings and supporting multi-document operations.
 
-## Features
-
-- PostgreSQL backend with pgvector extension for efficient vector operations
-- Support for multiple embedding models:
+## Features 🌟
+- 🐘 PostgreSQL backend with pgvector extension for efficient vector operations
+- 🧠 Support for multiple embedding models:
   - Sentence Transformer
   - OpenAI Embedding Model
-- Similarity search metrics:
+- 🔍 Similarity search metrics:
   - Euclidean distance
   - Cosine similarity
-- Multi-document support via collection-based document organization
-- Flexible API for adding documents and performing searches
+- 📚 Multi-document support
+- 🗂️ Collection-based document organization
+- 🛠️ Flexible API for adding documents and performing searches
 - APIs for reading stats about collections and setting similarity metric
 
-## Prerequisites
+## Prerequisites 📋
 
 - Docker
 - Python 
 - PostgreSQL with pgvector extension
 
-## Quick Start
+## Quick Start 
 
 1. Start a PostgreSQL instance with pgvector:
 
