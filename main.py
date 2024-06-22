@@ -1,20 +1,12 @@
-import numpy as np
-from sqlalchemy import create_engine, Column, func, select
+from sqlalchemy import create_engine, Column, select
 from sqlmodel import Field, SQLModel
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from pgvector.sqlalchemy import Vector
-from typing import List
+from typing import List, Optional
 from sentence_transformers import SentenceTransformer
 import time
 from enum import Enum
 from uuid import UUID, uuid4
-
-Base = declarative_base()
-
-
-class SimilarityMetric(Enum):
-    EUCLIDEAN = 1
-    COSINE = 2
 
 
 def measure_time(function):
@@ -27,15 +19,23 @@ def measure_time(function):
     return wrapper
 
 
+class SimilarityMetric(Enum):
+    EUCLIDEAN = 1
+    COSINE = 2
+
+
 class Document(SQLModel, table=True):
     __tablename__ = "vecky-documents"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    collection_name: str = Field(default="vecky", index=True)
     content: str
-    embedding: List[float] = Field(default=None, sa_column=Column(Vector(384)))
+    embedding: List[float] = Field(sa_column=Column(Vector(384)))
 
 
 class VectorDatabase:
+    DEFAULT_COLLECTION = "vecky"
+
     def __init__(
         self, db_url, embedding_model, similarity_metric=SimilarityMetric.COSINE
     ):
@@ -56,47 +56,50 @@ class VectorDatabase:
 
     @classmethod
     def from_documents(
-        cls, db_url, docs, embedding_model, similarity_metric=SimilarityMetric.COSINE
+        cls,
+        db_url,
+        docs,
+        collection_name=None,
+        embedding_model=None,
+        similarity_metric=SimilarityMetric.COSINE,
     ):
         instance = cls(db_url, embedding_model, similarity_metric)
-        instance.add_documents(docs)
+        instance.add_documents(docs, collection_name)
         return instance
 
-    def add_documents(self, docs):
+    def add_documents(self, docs, collection_name=None):
+        collection_name = collection_name or self.DEFAULT_COLLECTION
         session = self.Session()
         try:
             for doc in docs:
-                embedding = self.embedding_model.encode(doc)
-                embedding_list = embedding.tolist()
-                db_doc = Document(content=doc, embedding=embedding_list)
+                embedding = self.embedding_model.encode(doc).tolist()
+                db_doc = Document(
+                    content=doc, embedding=embedding, collection_name=collection_name
+                )
+                db_doc = Document.model_validate(db_doc)
                 session.add(db_doc)
             session.commit()
         finally:
             session.close()
-
-    def create_embeddings(self):
-        # This method is now a no-op, as embeddings are created when adding documents
-        pass
 
     def set_similarity_metric(self, metric):
         self.similarity_metric = metric
         self._set_similarity_function()
 
     @measure_time
-    def search(self, query: str, k: int = 5):
+    def search(self, query: str, collection_name: Optional[str] = None, k: int = 5):
         query_embedding = self.embedding_model.encode(query).tolist()
         session = self.Session()
         try:
-            stmt = (
-                select(
-                    Document.content,
-                    self._sim_func(Document.embedding, query_embedding).label(
-                        "similarity"
-                    ),
-                )
-                .order_by(self._sim_func(Document.embedding, query_embedding))
-                .limit(k)
-            )
+            stmt = select(
+                Document.content,
+                self._sim_func(Document.embedding, query_embedding).label("similarity"),
+            ).order_by(self._sim_func(Document.embedding, query_embedding))
+
+            if collection_name:
+                stmt = stmt.filter(Document.collection_name == collection_name)
+
+            stmt = stmt.limit(k)
             results = session.execute(stmt).all()
             return [r.content for r in results], [r.similarity for r in results]
         finally:
@@ -105,11 +108,33 @@ class VectorDatabase:
     def __repr__(self):
         session = self.Session()
         try:
-            doc_count = session.query(Document).count()
+            total_docs = session.query(Document).count()
+            collections = session.query(Document.collection_name.distinct()).count()
             return (
-                f"VectorDatabase(num_documents={doc_count}, "
+                f"VectorDatabase(total_documents={total_docs}, "
+                f"num_collections={collections}, "
                 f"embedding_model={self.embedding_model.__class__.__name__}, "
                 f"similarity_metric={self.similarity_metric.name})"
+            )
+        finally:
+            session.close()
+
+    def list_collections(self):
+        session = self.Session()
+        try:
+            collections = session.query(Document.collection_name.distinct()).all()
+            return [c[0] for c in collections]
+        finally:
+            session.close()
+
+    def get_collection_size(self, collection_name=None):
+        collection_name = collection_name or self.DEFAULT_COLLECTION
+        session = self.Session()
+        try:
+            return (
+                session.query(Document)
+                .filter(Document.collection_name == collection_name)
+                .count()
             )
         finally:
             session.close()
@@ -132,16 +157,22 @@ No one could quite remember when the old railway handcar had been abandoned besi
 Though Jim's body had failed him long ago, he blessed the twilight years that had sharpened his mind's eye. From his worn rocking chair, he constantly reimagined the dance of the clouds into fantastic beasts and sailing ships bound for lands unseen by weathered mariners.
 The ramshackle cottage sat placid amid the gradual encroachment of the marsh thickets. Lillian would never glimpse the rambling rose vines that had wound the crumbling chimney, but she could smell their haunting sweet perfume drifting through the skeins of mist swirling beneath the moon's watchful gaze."""
 
+    collection_name = "park-stories"
+
     docs = document.split("\n")
     print(f"Creating vector database for {len(docs)} documents...")
-    vdb = VectorDatabase.from_documents(db_url, docs, model, SimilarityMetric.COSINE)
+
+    vdb = VectorDatabase.from_documents(
+        db_url=db_url,
+        docs=docs,
+        collection_name=collection_name,
+        embedding_model=model,
+        similarity_metric=SimilarityMetric.COSINE,
+    )
     print(vdb)
 
     query = "What did Emma do in this story?"
-    results, scores = vdb.search(query, k=2)
-    search_time = (
-        scores  # The measure_time decorator returns execution time as the second item
-    )
+    (results, scores), search_time = vdb.search(query, k=2)
 
     print(f"\nMost similar documents: {results}")
     print(f"Similarity scores: {scores}")
@@ -152,15 +183,14 @@ The ramshackle cottage sat placid amid the gradual encroachment of the marsh thi
         "Emma enjoyed her day at the park.",
         "The park had many fun activities.",
     ]
-    vdb.add_documents(new_docs)
+    vdb.add_documents(new_docs, collection_name=collection_name)
     print(f"\nAdded {len(new_docs)} new documents. Total documents: {vdb}")
 
     # Changing similarity metric
     vdb.set_similarity_metric(SimilarityMetric.EUCLIDEAN)
     print(f"Changed similarity metric to {vdb.similarity_metric.name}")
 
-    results, scores = vdb.search(query, k=3)
-    search_time = scores
+    (results, scores), search_time = vdb.search(query, k=3)
 
     print("\nUpdated search results:")
     print(f"Most similar documents: {results}")
