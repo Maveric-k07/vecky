@@ -30,12 +30,12 @@ Vecky is a lightweight vector database implementation that uses PostgreSQL with 
    
 2. Set up your OpenAI API key as an environment variable:
    ```bash
-    export OPENAI_API_KEY=your_api_key_here
+      export OPENAI_API_KEY=your_api_key_here
    
 3. Install requirements:
    ```bash
-    poetry install
+      poetry install
 
 4. Run the main script:
-```bash
-    python main.py
+   ```bash
+      python main.py
