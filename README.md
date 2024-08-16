@@ -3,8 +3,8 @@
 Vecky is a lightweight vector database implementation that uses PostgreSQL with the pgvector extension for persisting embeddings and supporting multi-document operations.
 
 ## Checkout the blog posts: 
-   - https://medium.com/@gurramakhileshwar333/demystifying-vector-stores-a-beginners-guide-for-improved-rag-systems-using-numpy-a9bd9eba0142
-   - https://medium.com/@gurramakhileshwar333/demystifying-vector-stores-a-beginners-guide-for-improved-rag-systems-using-postgresql-d191cdd4d386
+   - [Demystifying Vector Stores: A Beginners Guide for Improved RAG Systems using Numpy](https://medium.com/@gurramakhileshwar333/demystifying-vector-stores-a-beginners-guide-for-improved-rag-systems-using-numpy-a9bd9eba0142)
+   - [Demystifying Vector Stores: A Beginners Guide for Improved RAG Systems using PostgreSQL](https://medium.com/@gurramakhileshwar333/demystifying-vector-stores-a-beginners-guide-for-improved-rag-systems-using-postgresql-d191cdd4d386)
 
 
 ## Features 🌟
