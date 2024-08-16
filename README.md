@@ -33,7 +33,7 @@ Vecky is a lightweight vector database implementation that uses PostgreSQL with 
    ```bash
    docker run --name pgvector-demo -e POSTGRES_PASSWORD=password -p 5433:5432 -d ankane/pgvector
    
-2. Set up your OpenAI API key as an environment variable:
+2. Set up your OpenAI API key as an environment variable (if you choose to use openai's embedding model):
    ```bash
       export OPENAI_API_KEY=your_api_key_here
    
